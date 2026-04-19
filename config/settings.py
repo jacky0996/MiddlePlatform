@@ -116,3 +116,5 @@ SIMPLE_JWT = {
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_CREDENTIALS = True
+
+EDM_URL = env("EDM_URL", default="http://localhost:82")
