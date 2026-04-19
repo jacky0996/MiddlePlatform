@@ -1,0 +1,6 @@
+CREATE DATABASE IF NOT EXISTS `platform_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+CREATE USER IF NOT EXISTS 'developer'@'%' IDENTIFIED BY 'dqzrYAEsFZz78wGJ6eU8';
+GRANT ALL PRIVILEGES ON `platform_db`.* TO 'developer'@'%';
+
+FLUSH PRIVILEGES;
