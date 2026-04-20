@@ -39,6 +39,15 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "apps.accounts.middleware.SsoLoginRequiredMiddleware",
+]
+
+SSO_LOGIN_EXEMPT_PREFIXES = [
+    "/sso/",
+    "/api/",
+    "/admin/",
+    "/static/",
+    "/media/",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -116,3 +125,20 @@ SIMPLE_JWT = {
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_CREDENTIALS = True
+
+EDM_URL = env("EDM_URL", default="http://localhost:82")
+
+# --- Magic link (passwordless) 登入設定 ---
+EMAIL_BACKEND = env(
+    "EMAIL_BACKEND",
+    default="django.core.mail.backends.console.EmailBackend",
+)
+DEFAULT_FROM_EMAIL = env(
+    "DEFAULT_FROM_EMAIL",
+    default="Middle Platform <noreply@middleplatform.local>",
+)
+SSO_BASE_URL = env("SSO_BASE_URL", default="http://localhost")
+MAGIC_LINK_TTL_MINUTES = env.int("MAGIC_LINK_TTL_MINUTES", default=15)
+MAGIC_LINK_RESEND_COOLDOWN_SECONDS = env.int(
+    "MAGIC_LINK_RESEND_COOLDOWN_SECONDS", default=60
+)

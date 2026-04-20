@@ -1,7 +1,27 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
+from django.urls import reverse_lazy
 
-from .models import User
+from .models import LoginToken, User
+
+admin.site.site_url = reverse_lazy("sso_login")
+
+
+@admin.register(LoginToken)
+class LoginTokenAdmin(admin.ModelAdmin):
+    list_display = ("user", "purpose", "created_at", "expires_at", "consumed_at")
+    list_filter = ("purpose", "consumed_at")
+    search_fields = ("user__email",)
+    readonly_fields = (
+        "user",
+        "token_hash",
+        "purpose",
+        "redirect_to",
+        "expires_at",
+        "consumed_at",
+        "created_ip",
+        "created_at",
+    )
 
 
 @admin.register(User)
