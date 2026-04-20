@@ -49,7 +49,7 @@
       margin-bottom: 6px;
       font-weight: 500;
     }
-    input[type="email"], input[type="password"] {
+    input[type="email"] {
       width: 100%;
       padding: 11px 14px;
       font-size: 14px;
@@ -100,8 +100,8 @@
   <form class="card" method="post" action="{% url 'sso_login' %}">
     {% csrf_token %}
     <div class="brand">MIDDLE PLATFORM · SSO</div>
-    <h1>登入以繼續</h1>
-    <p class="subtitle">使用中台帳號登入,授權後將自動回到原頁面。</p>
+    <h1>登入 / 註冊</h1>
+    <p class="subtitle">輸入 Email,我們將寄送一次性登入連結給你。首次登入會自動建立帳號。</p>
 
     {% if error %}
       <div class="error">{{ error }}</div>
@@ -110,11 +110,8 @@
     <label for="email">Email</label>
     <input id="email" name="email" type="email" value="{{ email|default:'' }}" required autofocus />
 
-    <label for="password">密碼</label>
-    <input id="password" name="password" type="password" required />
-
     <input type="hidden" name="redirect" value="{{ redirect_url }}" />
-    <button type="submit">登入</button>
+    <button type="submit">寄送登入連結</button>
 
     {% if redirect_url %}
       <div class="redirect-hint">登入後將導回: {{ redirect_url }}</div>
