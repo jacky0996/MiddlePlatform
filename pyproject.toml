@@ -1,0 +1,28 @@
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+extend-exclude = [
+    "**/migrations/**",
+    "staticfiles",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # pyflakes
+    "W",   # pycodestyle warnings
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long — let formatter decide
+    "B008",  # function call in default arg (Django models use this pattern)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"apps/accounts/tests/*" = ["E402"]
+"config/test_settings.py" = ["E402", "F401", "F403", "F405"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["apps", "config"]

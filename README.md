@@ -1,30 +1,26 @@
 # Middle Platform
 
-集中式身分識別與 SSO 中台服務,負責發放 JWT、驗證 token,並作為多個業務系統(EDM、未來其他站)的共用登入中樞。
+集中式身分識別與 SSO 中台服務。負責**簽發 JWT**、**驗證 token**,作為多個業務系統(EDM、未來其他站)的共用登入中樞。
 
-## 系統定位
+- 認證採 **Passwordless Magic Link**(Email 寄送一次性連結),不儲存密碼。
+- 對外業務系統提供 `/api/edm/sso/verify-token` 做 token 交換。
+- 全站預設受保護,未登入流量一律導至 `/sso/login/`。
 
-```
-┌─ Frontend(各站前台) ────┐
-│  User 登入/攜帶 Token     │
-└──────────┬────────────────┘
-           │
-           ▼
-┌─ Middle Platform(本專案)─┐
-│  • 帳密儲存(Django User)  │
-│  • 簽發 JWT(Access/Refresh)│
-│  • Token 驗證 API          │
-│  • 撤銷管理(Blacklist)    │
-└──────────┬────────────────┘
-           │  各站呼叫 verify-token
-           ▼
-┌─ 各業務系統(edm_backend …) ─┐
-│  收到 JWT 後回中台驗證        │
-│  拿到 user 資訊後回覆業務資料 │
-└──────────────────────────────┘
-```
+> 這是我用來面試 SA / 工程師職位的作品集專案,重點在**展現架構決策與安全設計**,不以高吞吐量為優化目標。完整設計脈絡請見 [`docs/`](./docs)。
 
-本中台只負責**身分識別**,不持有業務資料。各業務系統擁有自己獨立的資料庫。
+---
+
+## 文件索引
+
+| 文件 | 對象 | 內容 |
+|---|---|---|
+| [docs/user-guide.md](./docs/user-guide.md) | 使用者 | SSO 登入操作手冊(不含技術細節) |
+| [docs/use-cases.md](./docs/use-cases.md) | 開發者 / SA | Use Case Diagram 與逐條 Use Case 規格 |
+| [docs/architecture.md](./docs/architecture.md) | 開發者 / SA | C4 Context / Container / 內部模組 + Class / State Diagram |
+| [docs/user-flow.md](./docs/user-flow.md) | 開發者 / SA | 使用者流程圖 + SSO 登入 Sequence Diagram |
+| [docs/adr/](./docs/adr/) | 開發者 | 關鍵技術決策紀錄(Roadmap) |
+
+---
 
 ## 技術棧
 
@@ -32,46 +28,59 @@
 |---|---|
 | Language | Python 3.12 |
 | Framework | Django 5.1 + Django REST Framework |
-| Auth | djangorestframework-simplejwt(含 token blacklist) |
+| Auth | djangorestframework-simplejwt(含 token blacklist)+ 自製 Magic Link |
 | Database | MySQL 8.0 |
 | Container | Docker + Docker Compose |
+| Email(dev) | Django console backend(印到 `docker compose logs`) |
+
+---
+
+## 系統定位(簡略)
+
+```
+[User] ──Email──► [Middle Platform]
+                        │ 簽 JWT
+                        ▼
+               [EDM / 其他業務系統]
+                        │ 帶 JWT 回中台驗證
+                        └────────────► [Middle Platform /api/.../verify-token]
+```
+
+完整架構圖請見 [docs/architecture.md](./docs/architecture.md)。
+
+---
 
 ## 專案結構
 
 ```
 Middle_Platform/
 ├── apps/
-│   └── accounts/              # 使用者與認證相關
-│       ├── models.py          # User model(自訂,email 登入)
-│       ├── managers.py        # UserManager(建立使用者邏輯)
-│       ├── serializers.py     # 註冊/登入/Me 的 JSON 轉換
-│       ├── views.py           # Register / Login / Logout / Me
-│       ├── urls.py            # /api/auth/* 路由
-│       └── migrations/        # Django 自動產生的 schema 變更
+│   └── accounts/                 # 使用者與認證
+│       ├── models.py             # User, LoginToken(只存 sha256 hash)
+│       ├── managers.py           # create_user / create_passwordless_user
+│       ├── serializers.py        # DRF I/O 格式
+│       ├── views.py              # Register / Login / Me / VerifyToken / EdmSsoVerifyToken
+│       ├── sso_views.py          # SsoLogin / SsoMagicLink / SsoLogout(HTML 流程)
+│       ├── middleware.py         # SsoLoginRequiredMiddleware(未登入導走)
+│       ├── admin.py              # Django Admin 註冊
+│       ├── urls.py               # /api/auth/* 路由
+│       ├── templates/sso/        # 登入相關所有頁面
+│       └── migrations/
 ├── config/
-│   ├── settings.py            # Django 設定(DB、JWT、CORS…)
-│   ├── urls.py                # 根路由 + health check
+│   ├── settings.py               # Django 設定 + JWT + Email + Magic Link
+│   ├── urls.py                   # 根路由(/admin, /api, /sso)
 │   ├── wsgi.py / asgi.py
 │   └── __init__.py
-├── docker-compose/
-│   └── mysql/
-│       └── init.sql           # 首次建立 DB/User 的 SQL
-├── .env                       # 本地環境變數(不進 git)
-├── .env.example               # 環境變數範本
-├── docker-compose.yml         # 容器編排
-├── Dockerfile                 # Django 映像檔
-├── manage.py                  # Django 管理指令入口
+├── docs/                         # SA 文件:架構、流程、ADR
+├── docker-compose/mysql/init.sql
+├── docker-compose.yml
+├── Dockerfile
+├── manage.py
 ├── requirements.txt
 └── README.md
 ```
 
-## 環境需求
-
-- Docker 20.10+(建議 Desktop for Mac 最新版)
-- Docker Compose v2+
-- macOS / Linux(Windows 需用 WSL2)
-
-> **注意**:web 服務綁定 host port 80,首次啟動需要系統授權。
+---
 
 ## 快速啟動
 
@@ -81,34 +90,40 @@ Middle_Platform/
 cp .env.example .env
 ```
 
-編輯 `.env`,確認以下值(開發預設即可):
+關鍵設定(開發預設即可):
 
 ```
+DJANGO_SECRET_KEY=change-me
 DB_HOST=db
-DB_PORT=3306
 DB_DATABASE=platform_db
 DB_USERNAME=developer
-DB_PASSWORD='dqzrYAEsFZz78wGJ6eU8'
+DB_PASSWORD=dqzrYAEsFZz78wGJ6eU8
 MYSQL_ROOT_PASSWORD=root_password
+
+# Magic Link
+EDM_URL=http://localhost:82
+SSO_BASE_URL=http://localhost
+MAGIC_LINK_TTL_MINUTES=15
+MAGIC_LINK_RESEND_COOLDOWN_SECONDS=60
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+DEFAULT_FROM_EMAIL=Middle Platform <noreply@middleplatform.local>
 ```
 
-### 2. 產生 migration 檔(**首次啟動必要**)
-
-```bash
-docker compose run --rm web python manage.py makemigrations accounts
-```
-
-這一步會產生 `apps/accounts/migrations/0001_initial.py`,**記得 commit 進 git**。
-
-### 3. 啟動全部服務
+### 2. 啟動
 
 ```bash
 docker compose up -d
 ```
 
 首次啟動會:
-- 建立 `middle_platform_db` 容器,執行 `init.sql` 建立 `platform_db` + `developer` 帳號
-- 建立 `middle_platform_web` 容器,自動執行 `python manage.py migrate`(見 `docker-compose.yml` 的 `command`)
+- 建立 MySQL 容器並執行 `init.sql`
+- 建立 web 容器並自動 `python manage.py migrate`
+
+### 3. 建立管理員帳號(選用)
+
+```bash
+docker compose exec web python manage.py createsuperuser
+```
 
 ### 4. 驗證服務
 
@@ -117,147 +132,136 @@ curl http://localhost/api/health/
 # {"status": "ok"}
 ```
 
+打開瀏覽器進入 `http://localhost/sso/login/`,輸入任意 Email → 登入連結會印在 `docker compose logs -f web` 裡。
+
+---
+
 ## 服務端點
+
+### SSO HTML 流程(給瀏覽器)
+
+| 方法 | 路徑 | 用途 |
+|---|---|---|
+| GET | `/sso/login/` | 登入頁(輸入 Email) |
+| POST | `/sso/login/` | 寄送 Magic Link |
+| GET | `/sso/magic/<token>/` | 顯示「確認登入」頁(防 Email 掃描器預抓) |
+| POST | `/sso/magic/<token>/` | 真正消耗 token、簽 JWT、導回業務系統 |
+| GET | `/sso/logout/` | 登出 |
+
+### API(給程式 / 業務系統)
 
 | 方法 | 路徑 | 用途 | 認證 |
 |---|---|---|---|
-| GET | `/api/health/` | 健康檢查 | 不需要 |
-| POST | `/api/auth/register/` | 註冊 | 不需要 |
-| POST | `/api/auth/login/` | 登入(取得 JWT) | 不需要 |
-| POST | `/api/auth/refresh/` | 用 refresh token 換新 access token | 不需要 |
-| POST | `/api/auth/logout/` | 登出(將 refresh token 列入黑名單) | 需要 |
-| GET | `/api/auth/me/` | 取得目前使用者資訊 | 需要 |
-| GET | `/admin/` | Django Admin 管理後台 | 需要 superuser |
+| GET | `/api/health/` | 健康檢查 | 公開 |
+| POST | `/api/auth/register/` | 程式化註冊(含密碼) | 公開 |
+| POST | `/api/auth/login/` | 帳密登入取得 JWT | 公開 |
+| POST | `/api/auth/refresh/` | 用 refresh 換新 access | 公開 |
+| POST | `/api/auth/logout/` | refresh token 加入黑名單 | 需 JWT |
+| GET | `/api/auth/me/` | 目前使用者資訊 | 需 JWT |
+| POST | `/api/auth/verify-token/` | 通用 token 驗證 | 公開 |
+| POST | `/api/edm/sso/verify-token` | EDM 專用 token 交換(Vben 格式) | 公開 |
+| GET | `/admin/` | Django Admin | 需 superuser |
 
-### 範例:註冊 → 登入 → 查詢自己
+### 範例:EDM 收到 SSO token 後驗證
 
 ```bash
-# 註冊
-curl -X POST http://localhost/api/auth/register/ \
+curl -X POST http://localhost/api/edm/sso/verify-token \
   -H "Content-Type: application/json" \
-  -d '{"email": "test@example.com", "password": "SafePass!234", "display_name": "Test"}'
+  -d '{"token": "<JWT_FROM_SSO_REDIRECT>"}'
 
-# 登入(取 token)
-curl -X POST http://localhost/api/auth/login/ \
-  -H "Content-Type: application/json" \
-  -d '{"email": "test@example.com", "password": "SafePass!234"}'
-# → { "access": "...", "refresh": "..." }
-
-# 帶 token 查詢自己
-curl http://localhost/api/auth/me/ \
-  -H "Authorization: Bearer <access_token>"
+# → {"code":0,"data":{"accessToken":"...","userInfo":{...}}}
 ```
 
-### 建立 superuser(進 Django Admin 用)
+---
 
-```bash
-docker compose exec web python manage.py createsuperuser
-```
+## 全站鎖定設計(Middleware)
 
-## Port 規劃
+`apps.accounts.middleware.SsoLoginRequiredMiddleware` 在每個請求進入 view 前檢查 `request.user`,**未登入一律 302 導到 `/sso/login/?redirect=<原 URL>`**。
 
-| 服務 | Host Port | 容器內 Port | 說明 |
-|---|---|---|---|
-| Middle Platform web | **80** | 8000 | Django 開發伺服器 |
-| Middle Platform db  | **3306** | 3306 | MySQL(管理工具可連) |
+白名單(`SSO_LOGIN_EXEMPT_PREFIXES`):
+- `/sso/` — 登入頁本身
+- `/api/` — DRF API 用 JWT 自己認證
+- `/admin/` — Django Admin 有自己的登入頁
+- `/static/`, `/media/` — 靜態檔
 
-若本機其他服務佔用 80(如 edm_backend 用 81),請用 `DJANGO_PORT` 環境變數覆寫:
+這樣即使未來新增任何 view,都預設是受保護的 —— 安全預設 (secure by default)。
 
-```bash
-DJANGO_PORT=8080 docker compose up -d
-```
+---
+
+## 資料庫設計
+
+| 表 | 來源 | 用途 |
+|---|---|---|
+| `accounts_user` | 本專案 | 使用者主表 (email, display_name, is_active, is_staff) |
+| `accounts_login_token` | 本專案 | Magic Link token 的 **hash**(sha256)、purpose、TTL、消耗時間、來源 IP |
+| `auth_*` / `django_*` | Django 內建 | 權限、session、admin log、migration 紀錄 |
+| `token_blacklist_*` | SimpleJWT | 已發出 / 已撤銷的 refresh token |
+
+**安全要點**:`accounts_login_token` 永遠不儲存原始 token,只儲存 sha256 hash。原始 token 只在寄出的 Email 裡存在一次,即使 DB 外洩也無法被用來登入。
+
+---
+
+## 環境變數
+
+| 變數 | 用途 | 預設 |
+|---|---|---|
+| `DJANGO_SECRET_KEY` | Django SECRET_KEY | — |
+| `DJANGO_DEBUG` | Debug mode | `False` |
+| `DJANGO_ALLOWED_HOSTS` | 允許 host | `localhost,127.0.0.1` |
+| `DJANGO_PORT` | web 對外 port | `80` |
+| `CORS_ALLOWED_ORIGINS` | 允許跨域來源 | `[]` |
+| `MYSQL_ROOT_PASSWORD` | MySQL root 密碼 | — |
+| `DB_HOST` / `DB_PORT` / `DB_DATABASE` / `DB_USERNAME` / `DB_PASSWORD` | 資料庫連線 | — |
+| `JWT_ACCESS_TOKEN_LIFETIME_MIN` | Access token 存活 | `30` |
+| `JWT_REFRESH_TOKEN_LIFETIME_DAYS` | Refresh token 存活 | `7` |
+| `EDM_URL` | EDM 前台 URL(登入成功按鈕) | `http://localhost:82` |
+| `SSO_BASE_URL` | Magic Link 組信時使用的 base URL | `http://localhost` |
+| `MAGIC_LINK_TTL_MINUTES` | Magic Link 有效時間 | `15` |
+| `MAGIC_LINK_RESEND_COOLDOWN_SECONDS` | 重寄冷卻 | `60` |
+| `EMAIL_BACKEND` | Django email 後端 | console |
+| `DEFAULT_FROM_EMAIL` | 寄件者 | `Middle Platform <noreply@middleplatform.local>` |
+
+---
 
 ## 常用操作
 
 ```bash
-# 重啟
-docker compose restart web
-
-# 看 log
-docker compose logs -f web
-
-# 進容器 shell
-docker compose exec web bash
-
-# 跑 Django 指令
-docker compose exec web python manage.py shell
-docker compose exec web python manage.py createsuperuser
-
-# 新增 model 欄位後產 migration
-docker compose exec web python manage.py makemigrations
-docker compose exec web python manage.py migrate
-
-# 停止(保留資料)
+# 啟動 / 停止
+docker compose up -d
 docker compose down
 
-# 完全清除(含 MySQL 資料,init.sql 會重新執行)
+# 完全清除(含 MySQL volume)
 docker compose down -v
+
+# Log
+docker compose logs -f web
+
+# 進容器
+docker compose exec web bash
+docker compose exec web python manage.py shell
+
+# 建立管理員
+docker compose exec web python manage.py createsuperuser
+
+# Migration
+docker compose exec web python manage.py makemigrations
+docker compose exec web python manage.py migrate
 ```
 
-## 環境變數
+---
 
-| 變數 | 用途 | 範例 |
+## 已知限制與 Roadmap
+
+| 項目 | 現況 | 下一步 |
 |---|---|---|
-| `DJANGO_SECRET_KEY` | Django SECRET_KEY(production 必改) | `change-me-long-random-string` |
-| `DJANGO_DEBUG` | Debug mode | `True` / `False` |
-| `DJANGO_ALLOWED_HOSTS` | 允許的 host 列表 | `localhost,127.0.0.1` |
-| `DJANGO_PORT` | web 服務對外 port | `80` |
-| `CORS_ALLOWED_ORIGINS` | 允許跨域來源 | `http://localhost:3000` |
-| `MYSQL_ROOT_PASSWORD` | MySQL root 密碼(容器啟動用) | `root_password` |
-| `DB_CONNECTION` | DB 驅動 | `mysql` |
-| `DB_HOST` | DB 主機(容器內為 `db`) | `db` |
-| `DB_PORT` | DB port | `3306` |
-| `DB_DATABASE` | DB 名稱 | `platform_db` |
-| `DB_USERNAME` | DB 使用者 | `developer` |
-| `DB_PASSWORD` | DB 密碼 | `dqzrYAEsFZz78wGJ6eU8` |
-| `JWT_ACCESS_TOKEN_LIFETIME_MIN` | Access token 存活分鐘數 | `30` |
-| `JWT_REFRESH_TOKEN_LIFETIME_DAYS` | Refresh token 存活天數 | `7` |
+| Email 發送 | Console backend(印 log) | 加 Mailpit container 做 Demo,Prod 接 SES / SendGrid |
+| Rate limiting | 僅有 60 秒重寄 cooldown | 加入 per-IP 限流(django-ratelimit / nginx) |
+| ADR 文件 | 待撰寫 | 補齊:Passwordless、JWT vs Session、Token Hash Only |
+| Observability | 僅 Django log | 加入結構化 log + Prometheus metrics |
+| CI/CD | 無 | GitHub Actions:lint + test + docker build |
+| 測試 | 無 | pytest + pytest-django,至少覆蓋 magic link 流程 |
 
-## 資料庫設計
-
-目前 `platform_db` 內的主要資料表:
-
-| 表 | 來源 | 用途 |
-|---|---|---|
-| `accounts_user` | 本專案自訂 | 使用者帳密、profile |
-| `auth_group` / `auth_permission` / ... | Django 內建 | 權限與群組 |
-| `django_session` | Django 內建 | Session 儲存 |
-| `django_admin_log` | Django Admin | Admin 操作紀錄 |
-| `token_blacklist_outstandingtoken` | SimpleJWT | 已發出的 refresh token |
-| `token_blacklist_blacklistedtoken` | SimpleJWT | 已撤銷(登出)的 refresh token |
-| `django_migrations` | Django 內建 | 記錄已執行的 migration |
-
-只有 `accounts_user` 是業務邏輯表,其餘為框架基礎設施。
-
-## 與其他服務整合
-
-本中台會擔任所有業務系統的身分驗證中樞。外部系統(如 edm_backend)的整合方式:
-
-1. 使用者帶著中台簽發的 JWT 呼叫業務系統
-2. 業務系統收到後 POST 回中台 verify-token endpoint(**待實作**)
-3. 中台回覆 user 資訊,業務系統據此回傳業務資料
-
-verify-token endpoint 的詳細規格將於後續版本提供。
-
-### 本地開發 Docker 網路注意事項
-
-若其他服務(如 edm_backend)在 docker 容器內要呼叫本中台:
-- **不要用** `http://localhost` —— 容器內的 localhost 指向容器本身
-- **應該用** `http://host.docker.internal`(需在該容器的 compose 加上 `extra_hosts: ["host.docker.internal:host-gateway"]`)
-
-## 開發筆記
-
-### Django 的 migration 工作流
-
-1. 改 `models.py`
-2. `docker compose exec web python manage.py makemigrations` — 產生 migration 檔(**進 git**)
-3. `docker compose exec web python manage.py migrate` — 套用到 DB
-
-容器啟動時 `docker-compose.yml` 的 `command` 已包含 `migrate`,拉下新 code 後 restart 即可自動更新 schema。
-
-### 為什麼 `migrations/` 剛 clone 下來可能是空的
-
-Django 不預載 migration 檔案 —— 每個專案第一次建立自訂 model 時都要跑一次 `makemigrations`。產出的檔案要 commit 進 git,之後其他開發者或部署環境就不需要重跑 makemigrations,只要 `migrate` 即可。
+---
 
 ## License
 
