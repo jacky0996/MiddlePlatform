@@ -108,9 +108,7 @@ REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ),
-    "DEFAULT_PERMISSION_CLASSES": (
-        "rest_framework.permissions.IsAuthenticated",
-    ),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
 }
 
 SIMPLE_JWT = {
@@ -127,6 +125,8 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_CREDENTIALS = True
 
 EDM_URL = env("EDM_URL", default="http://localhost:82")
+# 登入成功後 EDM 端要落地的路徑,預設進 SA 文件 / UML 頁
+EDM_LANDING_PATH = env("EDM_LANDING_PATH", default="/sa-docs/uml")
 
 # --- Magic link (passwordless) 登入設定 ---
 EMAIL_BACKEND = env(
@@ -139,6 +139,4 @@ DEFAULT_FROM_EMAIL = env(
 )
 SSO_BASE_URL = env("SSO_BASE_URL", default="http://localhost")
 MAGIC_LINK_TTL_MINUTES = env.int("MAGIC_LINK_TTL_MINUTES", default=15)
-MAGIC_LINK_RESEND_COOLDOWN_SECONDS = env.int(
-    "MAGIC_LINK_RESEND_COOLDOWN_SECONDS", default=60
-)
+MAGIC_LINK_RESEND_COOLDOWN_SECONDS = env.int("MAGIC_LINK_RESEND_COOLDOWN_SECONDS", default=60)

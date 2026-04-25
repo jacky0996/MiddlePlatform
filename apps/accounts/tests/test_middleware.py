@@ -66,9 +66,7 @@ class TestSsoLoginRequiredMiddleware:
         resp = mw(request)
         assert resp.status_code == 200
 
-    def test_authenticated_user_passes_through(
-        self, factory, sentinel_response, active_user
-    ):
+    def test_authenticated_user_passes_through(self, factory, sentinel_response, active_user):
         mw = SsoLoginRequiredMiddleware(sentinel_response)
         request = factory.get("/app/dashboard/")
         request.user = active_user

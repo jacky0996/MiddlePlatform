@@ -107,9 +107,7 @@ class TestMagicLinkConsumption:
     def test_post_consumes_token_and_redirects_with_jwt(
         self, client, active_user, make_login_token
     ):
-        link, raw = make_login_token(
-            active_user, redirect_to="http://localhost:82/"
-        )
+        link, raw = make_login_token(active_user, redirect_to="http://localhost:82/")
         resp = client.post(reverse("sso_magic_link", args=[raw]))
 
         assert resp.status_code == 302
@@ -120,9 +118,7 @@ class TestMagicLinkConsumption:
         assert link.consumed_at is not None
 
     def test_post_activates_inactive_user(self, client, inactive_user, make_login_token):
-        link, raw = make_login_token(
-            inactive_user, purpose=LoginToken.PURPOSE_ACTIVATE
-        )
+        link, raw = make_login_token(inactive_user, purpose=LoginToken.PURPOSE_ACTIVATE)
         assert inactive_user.is_active is False
 
         client.post(reverse("sso_magic_link", args=[raw]))

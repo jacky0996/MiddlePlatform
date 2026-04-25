@@ -1,0 +1,29 @@
+# 基本語法與排版檢查,設計原則與 .github/workflows/ci.yml 的 lint job 一致,
+# 讓 commit 前能先在本機擋下 CI 會失敗的問題。
+# 安裝方式: pip install pre-commit && pre-commit install
+# 手動執行全部檔案: pre-commit run --all-files
+minimum_pre_commit_version: "3.5.0"
+
+repos:
+  # 通用檔案層級檢查 (排版 / 語法)
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace         # 移除行尾空白
+      - id: end-of-file-fixer           # 確保檔尾只有一個換行
+      - id: mixed-line-ending           # 統一換行符為 LF
+        args: ["--fix=lf"]
+      - id: check-merge-conflict        # 擋住未解決的 <<<<<<< 衝突標記
+      - id: check-added-large-files     # 擋住誤 commit 的大檔 (>500KB)
+        args: ["--maxkb=500"]
+      - id: check-yaml                  # YAML 語法檢查 (ci.yml / docker-compose)
+      - id: check-toml                  # TOML 語法檢查 (pyproject.toml)
+      - id: check-ast                   # Python 檔案語法 (parse AST)
+
+  # Python lint + format: 版本鎖定 0.8.4,與 CI 完全一致
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.8.4
+    hooks:
+      - id: ruff                        # 靜態檢查 (E/F/W/I/B/UP)
+        args: ["--fix"]
+      - id: ruff-format                 # 排版 (與 CI 的 ruff format --check 對齊)

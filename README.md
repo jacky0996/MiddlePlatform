@@ -102,6 +102,7 @@ MYSQL_ROOT_PASSWORD=root_password
 
 # Magic Link
 EDM_URL=http://localhost:82
+EDM_LANDING_PATH=/sa-docs/uml
 SSO_BASE_URL=http://localhost
 MAGIC_LINK_TTL_MINUTES=15
 MAGIC_LINK_RESEND_COOLDOWN_SECONDS=60
@@ -215,6 +216,7 @@ curl -X POST http://localhost/api/edm/sso/verify-token \
 | `JWT_ACCESS_TOKEN_LIFETIME_MIN` | Access token 存活 | `30` |
 | `JWT_REFRESH_TOKEN_LIFETIME_DAYS` | Refresh token 存活 | `7` |
 | `EDM_URL` | EDM 前台 URL(登入成功按鈕) | `http://localhost:82` |
+| `EDM_LANDING_PATH` | 登入成功後在 EDM 的落地路徑 | `/sa-docs/uml` |
 | `SSO_BASE_URL` | Magic Link 組信時使用的 base URL | `http://localhost` |
 | `MAGIC_LINK_TTL_MINUTES` | Magic Link 有效時間 | `15` |
 | `MAGIC_LINK_RESEND_COOLDOWN_SECONDS` | 重寄冷卻 | `60` |
@@ -250,6 +252,58 @@ docker compose exec web python manage.py migrate
 
 ---
 
+## 開發工具 — Lint / Test / CI
+
+本專案以 **ruff** 作為唯一的 lint + format 工具(設定在 [`pyproject.toml`](./pyproject.toml)),
+並用 **pre-commit** 在本機 commit 前先擋一次,避免把 CI 會爆紅的問題推上去。
+
+### 本機開發流程
+
+```bash
+# 1. 安裝 dev 依賴(含 ruff / pytest / pre-commit)
+pip install -r requirements-dev.txt
+
+# 2. 把 pre-commit hook 掛進 .git/hooks/(一次性設定)
+pre-commit install
+
+# 3. 之後每次 git commit 時會自動跑,也可以手動對全部檔案跑一次:
+pre-commit run --all-files
+```
+
+### pre-commit 做了什麼
+
+設定檔位於 [`.pre-commit-config.yaml`](./.pre-commit-config.yaml),只做**基本檢查**:
+
+| 類別 | Hook | 作用 |
+|---|---|---|
+| 排版 | `trailing-whitespace` / `end-of-file-fixer` / `mixed-line-ending` | 移除行尾空白、統一 LF 換行、檔尾補單一換行 |
+| 語法 | `check-yaml` / `check-toml` / `check-ast` | 擋住壞掉的 YAML / TOML / Python 語法 |
+| 衛生 | `check-merge-conflict` / `check-added-large-files` | 擋住 `<<<<<<<` 衝突標記與誤 commit 的大檔(>500KB) |
+| Python | `ruff` / `ruff-format` | 對齊 CI 的 `ruff check` 與 `ruff format --check` |
+
+> ruff 的版本(`v0.8.4`)在 pre-commit 與 CI 中鎖同一版,避免「本機過、CI 爆」。
+
+### CI (GitHub Actions)
+
+Workflow 定義在 [`.github/workflows/ci.yml`](./.github/workflows/ci.yml),在 `push` 到 `main`
+或開 PR 時觸發,共三個 job:
+
+| Job | 內容 |
+|---|---|
+| `lint` | `ruff check .` + `ruff format --check .` |
+| `test` | 安裝 `mysqlclient` 系統依賴後跑 `pytest --cov=apps`(用 `config.test_settings`,SQLite in-memory) |
+| `docker-build` | 等前兩個 job 通過後,驗證 `Dockerfile` 可以成功 build(不推 registry) |
+
+本機若要完整重現 CI,可直接跑:
+
+```bash
+ruff check .
+ruff format --check .
+DJANGO_SETTINGS_MODULE=config.test_settings pytest --cov=apps --cov-report=term-missing
+```
+
+---
+
 ## 已知限制與 Roadmap
 
 | 項目 | 現況 | 下一步 |
@@ -258,8 +312,8 @@ docker compose exec web python manage.py migrate
 | Rate limiting | 僅有 60 秒重寄 cooldown | 加入 per-IP 限流(django-ratelimit / nginx) |
 | ADR 文件 | 待撰寫 | 補齊:Passwordless、JWT vs Session、Token Hash Only |
 | Observability | 僅 Django log | 加入結構化 log + Prometheus metrics |
-| CI/CD | 無 | GitHub Actions:lint + test + docker build |
-| 測試 | 無 | pytest + pytest-django,至少覆蓋 magic link 流程 |
+| CI/CD | GitHub Actions:lint + test + docker build + 本機 pre-commit | 加入 coverage 門檻與 security scan(bandit / trivy) |
+| 測試 | pytest + pytest-django,已覆蓋 magic link 主要流程 | 補上 `EdmSsoVerifyToken` / middleware 白名單邊界測試 |
 
 ---
 

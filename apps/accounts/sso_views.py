@@ -40,6 +40,13 @@ def _build_redirect_with_token(redirect_url: str, token: str) -> str:
     return urlunparse(parsed._replace(query=new_query))
 
 
+def _edm_landing_url() -> str:
+    """組出 EDM 登入完的落地 URL,讓 caller 再接 ?token=。"""
+    base = settings.EDM_URL.rstrip("/")
+    path = "/" + settings.EDM_LANDING_PATH.lstrip("/")
+    return f"{base}{path}"
+
+
 def _is_safe_redirect(redirect_url: str) -> bool:
     if not redirect_url:
         return False
@@ -69,9 +76,7 @@ def _client_ip(request):
 
 def _send_magic_link(request, user: User, redirect_to: str, purpose: str) -> bool:
     """Create a LoginToken and email the magic link. Returns False if rate-limited."""
-    cooldown = timezone.now() - timedelta(
-        seconds=settings.MAGIC_LINK_RESEND_COOLDOWN_SECONDS
-    )
+    cooldown = timezone.now() - timedelta(seconds=settings.MAGIC_LINK_RESEND_COOLDOWN_SECONDS)
     recent = LoginToken.objects.filter(user=user, created_at__gte=cooldown).exists()
     if recent:
         return False
@@ -82,8 +87,7 @@ def _send_magic_link(request, user: User, redirect_to: str, purpose: str) -> boo
         token_hash=_hash_token(raw_token),
         purpose=purpose,
         redirect_to=redirect_to if _is_safe_redirect(redirect_to) else "",
-        expires_at=timezone.now()
-        + timedelta(minutes=settings.MAGIC_LINK_TTL_MINUTES),
+        expires_at=timezone.now() + timedelta(minutes=settings.MAGIC_LINK_TTL_MINUTES),
         created_ip=_client_ip(request),
     )
 
@@ -125,7 +129,7 @@ class SsoLoginView(View):
                 {
                     "token": token,
                     "user": request.user,
-                    "edm_url": _build_redirect_with_token(settings.EDM_URL, token),
+                    "edm_url": _build_redirect_with_token(_edm_landing_url(), token),
                 },
             )
 
@@ -149,16 +153,10 @@ class SsoLoginView(View):
 
         try:
             user = User.objects.get(email=email)
-            purpose = (
-                LoginToken.PURPOSE_LOGIN
-                if user.is_active
-                else LoginToken.PURPOSE_ACTIVATE
-            )
+            purpose = LoginToken.PURPOSE_LOGIN if user.is_active else LoginToken.PURPOSE_ACTIVATE
         except User.DoesNotExist:
             display_name = email.split("@")[0]
-            user = User.objects.create_passwordless_user(
-                email=email, display_name=display_name
-            )
+            user = User.objects.create_passwordless_user(email=email, display_name=display_name)
             purpose = LoginToken.PURPOSE_ACTIVATE
 
         sent = _send_magic_link(request, user, redirect_url, purpose)
@@ -226,7 +224,7 @@ class SsoMagicLinkView(View):
             {
                 "token": jwt_token,
                 "user": user,
-                "edm_url": _build_redirect_with_token(settings.EDM_URL, jwt_token),
+                "edm_url": _build_redirect_with_token(_edm_landing_url(), jwt_token),
             },
         )
 

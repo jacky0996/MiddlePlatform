@@ -57,9 +57,7 @@ class TestVerifyTokenEndpoint:
         assert resp.json()["valid"] is False
 
     def test_missing_token_returns_400(self, client):
-        resp = client.post(
-            reverse("verify_token"), data={}, content_type="application/json"
-        )
+        resp = client.post(reverse("verify_token"), data={}, content_type="application/json")
         assert resp.status_code == 400
 
 
@@ -68,9 +66,7 @@ class TestEdmSsoVerifyToken:
 
     def test_valid_token_returns_vben_shape(self, client, active_user):
         token = _access_token_for(active_user)
-        resp = client.post(
-            self.url, data={"token": token}, content_type="application/json"
-        )
+        resp = client.post(self.url, data={"token": token}, content_type="application/json")
         assert resp.status_code == 200
         body = resp.json()
         assert body["code"] == 0
@@ -83,22 +79,16 @@ class TestEdmSsoVerifyToken:
         active_user.save(update_fields=["is_superuser"])
         token = _access_token_for(active_user)
 
-        resp = client.post(
-            self.url, data={"token": token}, content_type="application/json"
-        )
+        resp = client.post(self.url, data={"token": token}, content_type="application/json")
         assert resp.json()["data"]["userInfo"]["roles"] == ["super"]
 
     def test_invalid_token_returns_code_1(self, client):
-        resp = client.post(
-            self.url, data={"token": "garbage"}, content_type="application/json"
-        )
+        resp = client.post(self.url, data={"token": "garbage"}, content_type="application/json")
         assert resp.status_code == 401
         assert resp.json()["code"] == 1
 
     def test_hws_token_alias_is_accepted(self, client, active_user):
         token = _access_token_for(active_user)
-        resp = client.post(
-            self.url, data={"hws_token": token}, content_type="application/json"
-        )
+        resp = client.post(self.url, data={"hws_token": token}, content_type="application/json")
         assert resp.status_code == 200
         assert resp.json()["code"] == 0

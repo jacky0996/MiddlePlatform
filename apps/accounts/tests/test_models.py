@@ -3,9 +3,6 @@ from datetime import timedelta
 import pytest
 from django.utils import timezone
 
-from apps.accounts.models import LoginToken
-
-
 pytestmark = pytest.mark.django_db
 
 
@@ -38,6 +35,7 @@ class TestLoginTokenState:
 class TestUserManager:
     def test_create_passwordless_user_has_unusable_password(self, db):
         from django.contrib.auth import get_user_model
+
         User = get_user_model()
         user = User.objects.create_passwordless_user(email="new@example.com")
         assert not user.has_usable_password()
@@ -45,12 +43,14 @@ class TestUserManager:
 
     def test_create_user_normalizes_email(self, db):
         from django.contrib.auth import get_user_model
+
         User = get_user_model()
         user = User.objects.create_user(email="Mixed@Example.COM", password="x")
         assert user.email == "Mixed@example.com"
 
     def test_create_user_requires_email(self, db):
         from django.contrib.auth import get_user_model
+
         User = get_user_model()
         with pytest.raises(ValueError):
             User.objects.create_user(email="", password="x")

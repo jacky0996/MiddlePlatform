@@ -2,8 +2,8 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
 
-from apps.accounts.views import EdmSsoVerifyTokenView
 from apps.accounts.sso_views import SsoLoginView, SsoLogoutView, SsoMagicLinkView
+from apps.accounts.views import EdmSsoVerifyTokenView
 
 
 def healthcheck(_request):
