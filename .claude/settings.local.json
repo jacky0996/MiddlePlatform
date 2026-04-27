@@ -1,7 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(curl -v http://localhost/)"
+      "Bash(curl -v http://localhost/)",
+      "Bash(pre-commit --version)",
+      "Bash(python3 -c \"import yaml; yaml.safe_load\\(open\\('.pre-commit-config.yaml'\\)\\); print\\('pre-commit config OK'\\)\")",
+      "Bash(python3 -c \"import yaml; yaml.safe_load\\(open\\('.github/workflows/ci.yml'\\)\\); print\\('ci.yml OK'\\)\")"
     ]
   }
 }

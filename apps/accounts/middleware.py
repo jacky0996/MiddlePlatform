@@ -13,14 +13,10 @@ from django.shortcuts import redirect
 class SsoLoginRequiredMiddleware:
     def __init__(self, get_response):
         self.get_response = get_response
-        self.exempt_prefixes = tuple(
-            getattr(settings, "SSO_LOGIN_EXEMPT_PREFIXES", ())
-        )
+        self.exempt_prefixes = tuple(getattr(settings, "SSO_LOGIN_EXEMPT_PREFIXES", ()))
 
     def __call__(self, request):
-        if request.user.is_authenticated or request.path.startswith(
-            self.exempt_prefixes
-        ):
+        if request.user.is_authenticated or request.path.startswith(self.exempt_prefixes):
             return self.get_response(request)
 
         query = urlencode({"redirect": request.build_absolute_uri()})

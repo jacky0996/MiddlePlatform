@@ -19,14 +19,20 @@ def active_user(db):
 
 @pytest.fixture
 def inactive_user(db):
-    return User.objects.create_passwordless_user(
-        email="bob@example.com", display_name="Bob"
-    )
+    return User.objects.create_passwordless_user(email="bob@example.com", display_name="Bob")
 
 
 @pytest.fixture
 def make_login_token(db):
-    def _make(user, *, raw_token="raw-token-xyz", minutes=15, consumed=False, purpose=LoginToken.PURPOSE_LOGIN, redirect_to=""):
+    def _make(
+        user,
+        *,
+        raw_token="raw-token-xyz",
+        minutes=15,
+        consumed=False,
+        purpose=LoginToken.PURPOSE_LOGIN,
+        redirect_to="",
+    ):
         token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
         link = LoginToken.objects.create(
             user=user,

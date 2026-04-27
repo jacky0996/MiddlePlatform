@@ -40,9 +40,7 @@ class LogoutView(APIView):
         try:
             RefreshToken(refresh).blacklist()
         except Exception as exc:
-            return Response(
-                {"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(status=status.HTTP_205_RESET_CONTENT)
 
 
