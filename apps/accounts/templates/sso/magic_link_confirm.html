@@ -64,7 +64,7 @@
   </style>
 </head>
 <body>
-  <form class="card" method="post">
+  <form class="card" method="post" action="{% url 'sso_magic_link' raw_token %}">
     {% csrf_token %}
     <div class="icon">✓</div>
     <h1>確認登入</h1>
