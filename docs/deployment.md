@@ -161,6 +161,7 @@ config/settings.py 各 env(...) 讀取
 | JWT | `JWT_ACCESS_TOKEN_LIFETIME_MIN`、`JWT_REFRESH_TOKEN_LIFETIME_DAYS` | ✅ | `restart` |
 | Magic Link | `MAGIC_LINK_TTL_MINUTES`、`MAGIC_LINK_RESEND_COOLDOWN_SECONDS` | ✅ | `restart` |
 | EDM 整合 | `EDM_URL`、`EDM_LANDING_PATH` | ✅ | `restart` |
+| Job Digger Admin 整合 | `JOB_DIGGER_ADMIN_URL`、`JOB_DIGGER_ADMIN_LANDING_PATH` | ✅ | `restart` |
 | Email | `EMAIL_BACKEND`、`DEFAULT_FROM_EMAIL` | ✅ | `restart` |
 
 **改 code 不用 restart**,因為 dev 設定的 `runserver` 會自動 reload(volumes mount 讓 host 改動即時同步進 container)。

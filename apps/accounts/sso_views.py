@@ -47,6 +47,13 @@ def _edm_landing_url() -> str:
     return f"{base}{path}"
 
 
+def _job_digger_admin_landing_url() -> str:
+    """組出 Job Digger Admin 登入完的落地 URL。"""
+    base = settings.JOB_DIGGER_ADMIN_URL.rstrip("/")
+    path = "/" + settings.JOB_DIGGER_ADMIN_LANDING_PATH.lstrip("/")
+    return f"{base}{path}"
+
+
 def _is_safe_redirect(redirect_url: str) -> bool:
     if not redirect_url:
         return False
@@ -130,6 +137,9 @@ class SsoLoginView(View):
                     "token": token,
                     "user": request.user,
                     "edm_url": _build_redirect_with_token(_edm_landing_url(), token),
+                    "job_digger_admin_url": _build_redirect_with_token(
+                        _job_digger_admin_landing_url(), token
+                    ),
                 },
             )
 
@@ -225,6 +235,9 @@ class SsoMagicLinkView(View):
                 "token": jwt_token,
                 "user": user,
                 "edm_url": _build_redirect_with_token(_edm_landing_url(), jwt_token),
+                "job_digger_admin_url": _build_redirect_with_token(
+                    _job_digger_admin_landing_url(), jwt_token
+                ),
             },
         )
 
