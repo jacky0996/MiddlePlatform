@@ -129,7 +129,7 @@ EDM_URL = env("EDM_URL", default="http://localhost:82")
 EDM_LANDING_PATH = env("EDM_LANDING_PATH", default="/sa-docs/uml")
 
 # Job Digger Admin (Laravel 後台,共用 SSO 的另一個業務系統)
-JOB_DIGGER_ADMIN_URL = env("JOB_DIGGER_ADMIN_URL", default="http://localhost:84")
+JOB_DIGGER_ADMIN_URL = env("JOB_DIGGER_ADMIN_URL", default="http://localhost:8084")
 # admin 端接收 SSO token 的 callback 路徑
 JOB_DIGGER_ADMIN_LANDING_PATH = env("JOB_DIGGER_ADMIN_LANDING_PATH", default="/sso/callback")
 
