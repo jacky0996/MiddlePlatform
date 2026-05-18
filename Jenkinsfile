@@ -16,8 +16,8 @@ pipeline {
     agent any
 
     environment {
-        // 你的 GCP 設定(改成自己的)
-        GCP_PROJECT   = 'your-gcp-project-id'
+        // GCP project 對應這個服務的 project(每個服務獨立一個 GCP project)
+        GCP_PROJECT   = 'middleplatform-496708'
         GCP_REGION    = 'asia-east1'
         AR_REPO       = 'middle-platform'  // Artifact Registry repo
         SERVICE_NAME  = 'middle-platform'  // Cloud Run service name
