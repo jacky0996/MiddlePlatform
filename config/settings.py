@@ -9,6 +9,7 @@ env = environ.Env(
     DJANGO_DEBUG=(bool, False),
     JWT_ACCESS_TOKEN_LIFETIME_MIN=(int, 30),
     JWT_REFRESH_TOKEN_LIFETIME_DAYS=(int, 7),
+    JWT_ALGORITHM=(str, "HS256"),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -111,7 +112,14 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
 }
 
+JWT_ALGORITHM = env("JWT_ALGORITHM")
+JWT_PRIVATE_KEY = env("JWT_PRIVATE_KEY", default=None)
+JWT_PUBLIC_KEY = env("JWT_PUBLIC_KEY", default=None)
+JWT_PRIVATE_KEY_PATH = env("JWT_PRIVATE_KEY_PATH", default=None)
+JWT_PUBLIC_KEY_PATH = env("JWT_PUBLIC_KEY_PATH", default=None)
+
 SIMPLE_JWT = {
+    "ALGORITHM": JWT_ALGORITHM,
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=env("JWT_ACCESS_TOKEN_LIFETIME_MIN")),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=env("JWT_REFRESH_TOKEN_LIFETIME_DAYS")),
     "ROTATE_REFRESH_TOKENS": True,
@@ -119,7 +127,22 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
+    "ISSUER": env("JWT_ISSUER", default="middle-platform"),
 }
+
+if JWT_ALGORITHM.startswith("RS"):
+    from apps.accounts.jwt_keys import load_private_key_pem, load_public_key_pem
+
+    SIMPLE_JWT["SIGNING_KEY"] = load_private_key_pem(
+        base_dir=BASE_DIR,
+        env_value=JWT_PRIVATE_KEY,
+        env_path=JWT_PRIVATE_KEY_PATH,
+    )
+    SIMPLE_JWT["VERIFYING_KEY"] = load_public_key_pem(
+        base_dir=BASE_DIR,
+        env_value=JWT_PUBLIC_KEY,
+        env_path=JWT_PUBLIC_KEY_PATH,
+    )
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_CREDENTIALS = True

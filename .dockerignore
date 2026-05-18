@@ -1,0 +1,44 @@
+# 構建 image 時不要把這些東西塞進去 — 加速 build、縮小 image、避免機密外洩
+.git
+.gitignore
+.github
+
+# venv / 編譯產物
+.venv
+venv
+env
+__pycache__
+*.py[cod]
+*$py.class
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+
+# 本地設定 / 機密
+.env
+.env.*
+keys/
+*.pem
+
+# IDE
+.vscode
+.idea
+.DS_Store
+
+# Logs / DB
+*.log
+*.sqlite3
+db.sqlite3-journal
+
+# Docker 自己
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# 文件
+docs/
+README*.md
+
+# 收集後的 static(會在 image 內重新 collect)
+staticfiles/
