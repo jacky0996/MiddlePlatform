@@ -1,0 +1,57 @@
+# Cloud Build pipeline for Middle Platform (Django) → Cloud Run
+#
+# 觸發來源:Cloud Run continuous deployment(GitHub push to main)
+# 編譯目標:Dockerfile.prod(gunicorn,綁 $PORT)
+# 部署目標:Cloud Run service `middle-platform` @ asia-east1
+#
+# 注意:_REGION / _SERVICE / _AR_REPO 都用 substitutions,
+#       環境變數請在 Cloud Run service 設定頁面維護(走 Secret Manager)
+
+steps:
+  # 1. 用 Dockerfile.prod 編譯 image
+  - id: build
+    name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=Dockerfile.prod
+      - --tag=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE}:${COMMIT_SHA}
+      - --tag=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE}:latest
+      - .
+
+  # 2. push 兩個 tag(commit SHA 用於 rollback,latest 用於 Cloud Run 拉)
+  - id: push-sha
+    name: gcr.io/cloud-builders/docker
+    args: [push, '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE}:${COMMIT_SHA}']
+  - id: push-latest
+    name: gcr.io/cloud-builders/docker
+    args: [push, '${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE}:latest']
+
+  # 3. 部署到 Cloud Run
+  #    --image 用 COMMIT_SHA tag,確保 immutable
+  #    其餘設定(env vars / secrets / Cloud SQL connection)在 service 設定頁面維護,
+  #    這裡不覆寫,避免每次 deploy 把 console 上手調的設定洗掉
+  - id: deploy
+    name: gcr.io/google.com/cloudsdktool/cloud-sdk
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE}:${COMMIT_SHA}
+      - --region=${_REGION}
+      - --platform=managed
+      - --quiet
+
+substitutions:
+  _REGION: asia-east1
+  _SERVICE: middle-platform
+  _AR_REPO: cloud-run-source-deploy
+
+# 同步把 image 註冊到 Artifact Registry,方便 console 看
+images:
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE}:${COMMIT_SHA}
+  - ${_REGION}-docker.pkg.dev/${PROJECT_ID}/${_AR_REPO}/${_SERVICE}:latest
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: E2_MEDIUM

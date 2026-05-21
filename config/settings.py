@@ -34,6 +34,8 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # WhiteNoise:Cloud Run 沒前面 nginx,靜態檔由 Django 自己 serve
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -102,6 +104,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# WhiteNoise 壓縮 + manifest hash,production 一次 collectstatic 後永久 cache
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -146,6 +153,17 @@ if JWT_ALGORITHM.startswith("RS"):
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_CREDENTIALS = True
+
+# --- Production / Cloud Run 反向 proxy 設定 ---
+# Cloud Run 在 Google Front End 後面,Django 收到的是 HTTP,需告訴它原本是 HTTPS
+# 不然 request.is_secure() 永遠 False,CSRF / cookie secure flag 會混亂
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Django 4.0+ 對跨 origin 的 POST 強制要求 CSRF_TRUSTED_ORIGINS 帶 scheme
+# Cloud Run URL 通常是 https://<svc>-<hash>-<region>.run.app,先預設信任全部 run.app
+CSRF_TRUSTED_ORIGINS = env.list(
+    "CSRF_TRUSTED_ORIGINS",
+    default=["https://*.run.app"],
+)
 
 EDM_URL = env("EDM_URL", default="http://localhost:82")
 # 登入成功後 EDM 端要落地的路徑,預設進 SA 文件 / UML 頁

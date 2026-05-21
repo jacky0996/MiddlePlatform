@@ -55,19 +55,12 @@ RUN DJANGO_SECRET_KEY=build-dummy \
     DB_DATABASE=dummy DB_USERNAME=dummy DB_PASSWORD=dummy DB_HOST=dummy \
     python manage.py collectstatic --noinput || echo "collectstatic skipped"
 
+# 啟動腳本:先跑 migrate 再啟動 gunicorn
+COPY entrypoint.prod.sh /entrypoint.prod.sh
+RUN chmod +x /entrypoint.prod.sh
+
 # Cloud Run 期望容器監聽 $PORT(預設 8080)
 ENV PORT=8080
 EXPOSE 8080
 
-# gunicorn 設定:
-#   --workers 2          記憶體配 512MB 夠用;CPU 量大再加
-#   --threads 4          每個 worker 用 thread 處理 I/O bound(MySQL/外部 API)
-#   --timeout 0          Cloud Run 已有自己的 timeout,gunicorn 不要再 kill
-#   --access-logfile -   log 出 stdout 給 Cloud Logging 收
-CMD exec gunicorn config.wsgi:application \
-    --bind 0.0.0.0:$PORT \
-    --workers 2 \
-    --threads 4 \
-    --timeout 0 \
-    --access-logfile - \
-    --error-logfile -
+ENTRYPOINT ["/entrypoint.prod.sh"]
