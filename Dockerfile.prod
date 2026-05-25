@@ -16,13 +16,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        build-essential \
-        default-libmysqlclient-dev \
-        pkg-config \
-    && rm -rf /var/lib/apt/lists/*
-
+# psycopg[binary] 自帶 libpq,builder 不需要 apt 套件;留個空 layer 方便未來加回
 COPY requirements.txt .
 RUN pip install --upgrade pip \
     && pip install --user --no-cache-dir -r requirements.txt
@@ -37,10 +31,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# runtime 只裝 mysql client lib(driver),不裝 build-essential
+# psycopg[binary] 已包含 libpq,runtime 只需要 curl 做 health check
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        default-libmysqlclient-dev \
         curl \
     && rm -rf /var/lib/apt/lists/*
 

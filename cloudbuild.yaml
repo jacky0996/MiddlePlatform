@@ -44,7 +44,7 @@ steps:
 
 substitutions:
   _REGION: asia-east1
-  _SERVICE: middle-platform
+  _SERVICE: middleplatform
   _AR_REPO: cloud-run-source-deploy
 
 # 同步把 image 註冊到 Artifact Registry,方便 console 看
