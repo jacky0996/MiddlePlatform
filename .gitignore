@@ -12,6 +12,10 @@ env/
 .env.local
 .env.*.local
 
+# JWT signing keys — generate locally via `python manage.py generate_jwt_keys`
+keys/
+*.pem
+
 db.sqlite3
 db.sqlite3-journal
 *.log

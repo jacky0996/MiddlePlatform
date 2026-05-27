@@ -1,0 +1,59 @@
+# Cloud Run 用的 production image。
+#
+# 與 dev Dockerfile 的差異:
+#   - 用 gunicorn 取代 runserver(production-grade,可橫向擴展)
+#   - 綁定 $PORT(Cloud Run 注入)
+#   - Multi-stage build,瘦身 image,加速冷啟動
+#   - collectstatic 在 build 期完成(Cloud Run 是 immutable container)
+#   - 啟動指令直接 exec,讓 SIGTERM 正確傳遞給 gunicorn
+
+# ============= Builder stage =============
+FROM python:3.12-slim AS builder
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+# psycopg[binary] 自帶 libpq,builder 不需要 apt 套件;留個空 layer 方便未來加回
+COPY requirements.txt .
+RUN pip install --upgrade pip \
+    && pip install --user --no-cache-dir -r requirements.txt
+
+# ============= Runtime stage =============
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PATH=/root/.local/bin:$PATH \
+    DJANGO_SETTINGS_MODULE=config.settings
+
+WORKDIR /app
+
+# psycopg[binary] 已包含 libpq,runtime 只需要 curl 做 health check
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# 從 builder 拷貝已裝好的 Python 套件
+COPY --from=builder /root/.local /root/.local
+
+COPY . .
+
+# build 期跑 collectstatic — Cloud Run runtime 是唯讀,改不了
+# 用 dummy SECRET_KEY 跑,因為這步不需要真實設定
+RUN DJANGO_SECRET_KEY=build-dummy \
+    DB_DATABASE=dummy DB_USERNAME=dummy DB_PASSWORD=dummy DB_HOST=dummy \
+    python manage.py collectstatic --noinput || echo "collectstatic skipped"
+
+# 啟動腳本:先跑 migrate 再啟動 gunicorn
+COPY entrypoint.prod.sh /entrypoint.prod.sh
+RUN chmod +x /entrypoint.prod.sh
+
+# Cloud Run 期望容器監聽 $PORT(預設 8080)
+ENV PORT=8080
+EXPOSE 8080
+
+ENTRYPOINT ["/entrypoint.prod.sh"]

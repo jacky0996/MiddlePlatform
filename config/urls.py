@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import include, path
 
+from apps.accounts.jwks_views import jwks_view
 from apps.accounts.sso_views import SsoLoginView, SsoLogoutView, SsoMagicLinkView
 from apps.accounts.views import EdmSsoVerifyTokenView
 
@@ -13,6 +14,8 @@ def healthcheck(_request):
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/health/", healthcheck, name="health"),
+    path("healthz", healthcheck, name="healthz"),
+    path(".well-known/jwks.json", jwks_view, name="jwks"),
     path("api/auth/", include("apps.accounts.urls")),
     path(
         "api/edm/sso/verify-token",

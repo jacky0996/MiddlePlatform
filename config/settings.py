@@ -9,6 +9,7 @@ env = environ.Env(
     DJANGO_DEBUG=(bool, False),
     JWT_ACCESS_TOKEN_LIFETIME_MIN=(int, 30),
     JWT_REFRESH_TOKEN_LIFETIME_DAYS=(int, 7),
+    JWT_ALGORITHM=(str, "HS256"),
 )
 environ.Env.read_env(BASE_DIR / ".env")
 
@@ -33,6 +34,8 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
+    # WhiteNoise:Cloud Run 沒前面 nginx,靜態檔由 Django 自己 serve
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -72,16 +75,12 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.mysql",
+        "ENGINE": "django.db.backends.postgresql",
         "NAME": env("DB_DATABASE"),
         "USER": env("DB_USERNAME"),
         "PASSWORD": env("DB_PASSWORD"),
         "HOST": env("DB_HOST", default="db"),
-        "PORT": env("DB_PORT", default="3306"),
-        "OPTIONS": {
-            "charset": "utf8mb4",
-            "init_command": "SET sql_mode='STRICT_TRANS_TABLES'",
-        },
+        "PORT": env("DB_PORT", default="5432"),
     }
 }
 
@@ -101,6 +100,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+# WhiteNoise 壓縮 + manifest hash,production 一次 collectstatic 後永久 cache
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
@@ -111,7 +115,14 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
 }
 
+JWT_ALGORITHM = env("JWT_ALGORITHM")
+JWT_PRIVATE_KEY = env("JWT_PRIVATE_KEY", default=None)
+JWT_PUBLIC_KEY = env("JWT_PUBLIC_KEY", default=None)
+JWT_PRIVATE_KEY_PATH = env("JWT_PRIVATE_KEY_PATH", default=None)
+JWT_PUBLIC_KEY_PATH = env("JWT_PUBLIC_KEY_PATH", default=None)
+
 SIMPLE_JWT = {
+    "ALGORITHM": JWT_ALGORITHM,
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=env("JWT_ACCESS_TOKEN_LIFETIME_MIN")),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=env("JWT_REFRESH_TOKEN_LIFETIME_DAYS")),
     "ROTATE_REFRESH_TOKENS": True,
@@ -119,14 +130,45 @@ SIMPLE_JWT = {
     "AUTH_HEADER_TYPES": ("Bearer",),
     "USER_ID_FIELD": "id",
     "USER_ID_CLAIM": "user_id",
+    "ISSUER": env("JWT_ISSUER", default="middle-platform"),
 }
+
+if JWT_ALGORITHM.startswith("RS"):
+    from apps.accounts.jwt_keys import load_private_key_pem, load_public_key_pem
+
+    SIMPLE_JWT["SIGNING_KEY"] = load_private_key_pem(
+        base_dir=BASE_DIR,
+        env_value=JWT_PRIVATE_KEY,
+        env_path=JWT_PRIVATE_KEY_PATH,
+    )
+    SIMPLE_JWT["VERIFYING_KEY"] = load_public_key_pem(
+        base_dir=BASE_DIR,
+        env_value=JWT_PUBLIC_KEY,
+        env_path=JWT_PUBLIC_KEY_PATH,
+    )
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_CREDENTIALS = True
 
+# --- Production / Cloud Run 反向 proxy 設定 ---
+# Cloud Run 在 Google Front End 後面,Django 收到的是 HTTP,需告訴它原本是 HTTPS
+# 不然 request.is_secure() 永遠 False,CSRF / cookie secure flag 會混亂
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+# Django 4.0+ 對跨 origin 的 POST 強制要求 CSRF_TRUSTED_ORIGINS 帶 scheme
+# Cloud Run URL 通常是 https://<svc>-<hash>-<region>.run.app,先預設信任全部 run.app
+CSRF_TRUSTED_ORIGINS = env.list(
+    "CSRF_TRUSTED_ORIGINS",
+    default=["https://*.run.app"],
+)
+
 EDM_URL = env("EDM_URL", default="http://localhost:82")
 # 登入成功後 EDM 端要落地的路徑,預設進 SA 文件 / UML 頁
 EDM_LANDING_PATH = env("EDM_LANDING_PATH", default="/sa-docs/uml")
+
+# Job Digger Admin (Laravel 後台,共用 SSO 的另一個業務系統)
+JOB_DIGGER_ADMIN_URL = env("JOB_DIGGER_ADMIN_URL", default="http://localhost:8084")
+# admin 端接收 SSO token 的 callback 路徑
+JOB_DIGGER_ADMIN_LANDING_PATH = env("JOB_DIGGER_ADMIN_LANDING_PATH", default="/sso/callback")
 
 # --- Magic link (passwordless) 登入設定 ---
 EMAIL_BACKEND = env(
