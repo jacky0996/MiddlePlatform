@@ -51,6 +51,8 @@ SSO_LOGIN_EXEMPT_PREFIXES = [
     "/admin/",
     "/static/",
     "/media/",
+    "/.well-known/",
+    "/healthz",
 ]
 
 ROOT_URLCONF = "config.urls"
