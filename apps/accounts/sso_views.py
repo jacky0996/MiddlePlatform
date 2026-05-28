@@ -26,11 +26,16 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from .models import LoginToken, User
 
-_SAFE_REDIRECT_HOSTS = {
+_DEFAULT_SAFE_REDIRECT_HOSTS = {
     "localhost",
     "127.0.0.1",
     "host.docker.internal",
 }
+
+
+def _safe_redirect_hosts() -> set[str]:
+    extra = {h.lower() for h in getattr(settings, "SSO_SAFE_REDIRECT_HOSTS", []) if h}
+    return _DEFAULT_SAFE_REDIRECT_HOSTS | extra
 
 
 def _build_redirect_with_token(redirect_url: str, token: str) -> str:
@@ -60,7 +65,15 @@ def _is_safe_redirect(redirect_url: str) -> bool:
     parsed = urlparse(redirect_url)
     if parsed.scheme not in {"http", "https"}:
         return False
-    return (parsed.hostname or "").lower() in _SAFE_REDIRECT_HOSTS
+    host = (parsed.hostname or "").lower()
+    if host in _safe_redirect_hosts():
+        return True
+    # 允許用萬用 suffix 例：".run.app" 涵蓋所有 Cloud Run domain
+    for suffix in getattr(settings, "SSO_SAFE_REDIRECT_HOST_SUFFIXES", []):
+        s = suffix.lower().lstrip("*")
+        if s and host.endswith(s):
+            return True
+    return False
 
 
 def _issue_access_token(user) -> str:
