@@ -51,6 +51,8 @@ SSO_LOGIN_EXEMPT_PREFIXES = [
     "/admin/",
     "/static/",
     "/media/",
+    "/.well-known/",
+    "/healthz",
 ]
 
 ROOT_URLCONF = "config.urls"
@@ -169,6 +171,14 @@ EDM_LANDING_PATH = env("EDM_LANDING_PATH", default="/sa-docs/uml")
 JOB_DIGGER_ADMIN_URL = env("JOB_DIGGER_ADMIN_URL", default="http://localhost:8084")
 # admin 端接收 SSO token 的 callback 路徑
 JOB_DIGGER_ADMIN_LANDING_PATH = env("JOB_DIGGER_ADMIN_LANDING_PATH", default="/sso/callback")
+
+# 允許跨服務 SSO redirect 的 host(精確比對) / suffix(尾綴比對)。
+# 雲端要把各服務的 hostname 加進來,否則 redirect 會被擋,退回 login_success 落地頁。
+SSO_SAFE_REDIRECT_HOSTS = env.list("SSO_SAFE_REDIRECT_HOSTS", default=[])
+SSO_SAFE_REDIRECT_HOST_SUFFIXES = env.list(
+    "SSO_SAFE_REDIRECT_HOST_SUFFIXES",
+    default=[".run.app"],
+)
 
 # --- Magic link (passwordless) 登入設定 ---
 EMAIL_BACKEND = env(
