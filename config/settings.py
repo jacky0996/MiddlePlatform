@@ -148,6 +148,8 @@ if JWT_ALGORITHM.startswith("RS"):
         env_value=JWT_PUBLIC_KEY,
         env_path=JWT_PUBLIC_KEY_PATH,
     )
+    # RS/ES 簽章時自動把 kid 塞進 JWT header,讓下游 JWKS 驗章能對應公鑰
+    SIMPLE_JWT["TOKEN_BACKEND_CLASS"] = "apps.accounts.token_backend.KidAwareTokenBackend"
 
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 CORS_ALLOW_CREDENTIALS = True

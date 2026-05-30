@@ -41,25 +41,40 @@ def load_public_key_pem(base_dir: Path, env_value=None, env_path=None) -> str:
     return read_pem(env_value, env_path, base_dir / "keys" / "jwt_public.pem")
 
 
-@lru_cache(maxsize=1)
-def get_jwks() -> dict:
-    """Build a JWKS document from the current public key."""
-    from cryptography.hazmat.primitives import serialization
+def _load_public_pem_bytes() -> bytes:
     from django.conf import settings
-    from jwt.utils import base64url_encode, to_base64url_uint
 
-    pem = load_public_key_pem(
+    return load_public_key_pem(
         base_dir=settings.BASE_DIR,
         env_value=getattr(settings, "JWT_PUBLIC_KEY", None),
         env_path=getattr(settings, "JWT_PUBLIC_KEY_PATH", None),
     ).encode()
+
+
+@lru_cache(maxsize=1)
+def get_current_kid() -> str:
+    """簽 JWT 用的 kid — 跟 JWKS 公開的 kid 同一個值,確保下游能查表對應。
+
+    取公鑰 PEM 的 sha256 前 16 字元 base64url,夠唯一且輪替金鑰時會自動換掉。
+    """
+    from jwt.utils import base64url_encode
+
+    pem = _load_public_pem_bytes()
+    return base64url_encode(hashlib.sha256(pem).digest()).decode()[:16]
+
+
+@lru_cache(maxsize=1)
+def get_jwks() -> dict:
+    """Build a JWKS document from the current public key."""
+    from cryptography.hazmat.primitives import serialization
+    from jwt.utils import to_base64url_uint
+
+    pem = _load_public_pem_bytes()
     public_key = serialization.load_pem_public_key(pem)
     numbers = public_key.public_numbers()
 
     n = to_base64url_uint(numbers.n).decode()
     e = to_base64url_uint(numbers.e).decode()
-
-    kid = base64url_encode(hashlib.sha256(pem).digest()).decode()[:16]
 
     return {
         "keys": [
@@ -67,7 +82,7 @@ def get_jwks() -> dict:
                 "kty": "RSA",
                 "use": "sig",
                 "alg": "RS256",
-                "kid": kid,
+                "kid": get_current_kid(),
                 "n": n,
                 "e": e,
             }
