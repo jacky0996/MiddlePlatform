@@ -2,7 +2,7 @@
 #
 # 觸發來源:Cloud Run continuous deployment(GitHub push to main)
 # 編譯目標:Dockerfile.prod(gunicorn,綁 $PORT)
-# 部署目標:Cloud Run service `middle-platform` @ asia-east1
+# 部署目標:Cloud Run service `middleplatform` @ asia-east1
 #
 # 注意:_REGION / _SERVICE / _AR_REPO 都用 substitutions,
 #       環境變數請在 Cloud Run service 設定頁面維護(走 Secret Manager)
